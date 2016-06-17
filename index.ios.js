@@ -3,253 +3,194 @@ import {
   AppRegistry,
   StyleSheet,
   Text,
-  View
+  View,
+  TouchableHighlight,
+  AlertIOS
 } from 'react-native';
 
-var noble = require('react-native-ble');
-var Devices = require('./devices');
-var measurementCharacteristic = null;
+class BleHackNative extends Component{
+    render() {
+        return (
+          <View style={styles.mainContainer}>
+            <View style={styles.toolbar}>
+                <View style={styles.statusIcons}>
+                  <View style={styles.statusGroup}>
+                    <View style={styles.solid}></View>
+                    <Text style={styles.statusName}>Battery</Text>
+                  </View>
+                  <View style={styles.statusGroup}>
+                    <View style={styles.solid}></View>
+                    <Text style={styles.statusName}>Status</Text>
+                  </View>
+                </View>
+                <Text style={styles.hostName}>Device</Text>
+            </View>
 
-class BleHackNative extends Component {
-  constructor(props) {
-    super(props);
+            <View style={styles.content}>
+              <View style={styles.messageBox}>
+                <View>
+                    <Text style={styles.messageBoxTitleText}>Marks BP Reading</Text>
+                </View>
+                <View>
+                    <Text style={styles.messageBoxBodyText}>140/20, Pulse 78</Text>
+                </View>
+              </View>
+            </View>
 
-    this.state = {
-      deviceSeeker: 'Idle',
-      deviceWeightState: 1,
-      deviceLastReading: ''
-    };
+            <View style={styles.footer}>
 
-    this.readPeripheralData = this.readPeripheralData.bind(this);
-    this.startScanning = this.startScanning.bind(this);
-    this.stopScanning = this.stopScanning.bind(this);
-    this.saveAndReset = this.saveAndReset.bind(this);
-  }
+              <View style={styles.buttons}>
+                <View style={styles.buttonGroup}>
+                  <View style={styles.solidButton}></View>
+                  <Text style={styles.buttonName}>Reset</Text>
+                </View>
+                <View style={styles.buttonGroup}>
+                  <View style={styles.solidButton}>
+                    <Text style={styles.smartState}>ON</Text>
+                  </View>
+                  <Text style={styles.buttonName}>Smart</Text>
+                </View>
+              </View>
 
-  componentDidMount() {
+              <View style={styles.deviceIcons}>
+                <View style={styles.deviceGroup}>
+                  <Text style={styles.deviceName}>BP Meter</Text>
+                  <View style={styles.solid}></View>
+                </View>
+                <View style={styles.deviceGroup}>
+                  <Text style={styles.deviceName}>Weight Scale</Text>
+                  <View style={styles.solid}></View>
+                </View>
+              </View>
 
-    // return;
+            </View>
 
-    noble.on('stateChange', function(state) {
-      console.log('stateChange = ' + state);
-
-      if (state === 'poweredOn') {
-        this.startScanning();
-      }
-      else {
-        this.stopScanning();
-      }
-    }.bind(this));
-
-    noble.on('discover', function(peripheral) {
-      console.log('"' + peripheral.advertisement.localName + '" entered (RSSI ' + peripheral.rssi + ') ' + new Date());
-
-      if (peripheral.advertisement.localName == Devices.localName) {
-
-          this.stopScanning();
-
-          console.log('found our target peripheral');
-          // console.log(peripheral.advertisement);
-
-          peripheral.connect(function(err) {
-            peripheral.discoverServices([Devices.serviceUuid], function(err, services) {
-              services.forEach(function(service) {
-                console.log('found our target service:', service.uuid);
-                service.discoverCharacteristics([], function(err, characteristics) {
-
-                  characteristics.forEach(function(characteristic) {
-                    if (Devices.measurementCharacteristicUuid == characteristic.uuid.toLowerCase()) {
-                      console.log('found our target characteristic:', characteristic.uuid);
-                      measurementCharacteristic = characteristic;
-
-                      this.readPeripheralData();
-                    }
-                  }.bind(this))
-                }.bind(this))
-              }.bind(this))
-            }.bind(this))
-          }.bind(this))
-      }
-    }.bind(this));
-  }
-
-  componentWillUnmount() {
-    console.log('unmount');
-  }
-
-  startScanning() {
-    console.log('scanning...');
-
-    this.setState({
-      deviceSeeker: 'Scanning'
-    });
-
-    noble.startScanning([], false);
-  }
-
-  stopScanning() {
-    console.log('stop scanning...');
-
-    this.setState({
-      deviceSeeker: 'Idle'
-    });
-
-    noble.stopScanning();
-  }
-
-  readPeripheralData() {
-    this.setState({
-      deviceWeightState: 2
-    });
-
-    measurementCharacteristic.notify(true, function(error) {
-      if (error) {
-        console.log('readPeripheralData - notify error! ', error);
-      }
-    }.bind(this));
-
-    measurementCharacteristic.on('data', function(data, isNotification) {
-      console.log('Success! reading received = ');
-
-      var rawData = data; // e.g. <Buffer 02 f0 0a e0 07 06 01 10 1d 3
-      var targetReading = data.readUInt16LE(1); // skip 1 byte and extract UInitLE after that which is what we want
-      var adjustedReading = targetReading * 0.005; // if it's KG then 0.005 resolution
-
-      console.log(adjustedReading);
-
-      this.setState({
-        deviceWeightState: 3,
-        deviceLastReading: adjustedReading
-      });
-
-      this.saveAndReset();
-      this.startScanning();
-    }.bind(this));
-  }
-
-  saveAndReset() {
-    setTimeout(function() {
-      this.setState({
-        deviceWeightState: 1,
-        deviceLastReading: "Saved"
-      });
-
-      setTimeout(function() {
-        this.setState({
-          deviceLastReading: ""
-        });
-
-      }.bind(this), 4000);
-
-    }.bind(this), 8000);
-  }
-
-  render() {
-    var deviceBatteryStyle = styles.deviceBatteryGood;
-    var deviceSeekerStyle = styles.deviceIdle;
-    var deviceWeightStyle = styles.deviceIdle;
-    var devicePressureStyle = styles.deviceIdle;
-
-    if (this.state.deviceSeeker == 'Scanning') {
-      deviceSeekerStyle = styles.deviceWorking;
+          </View>
+        );
     }
-    else if (this.state.deviceSeeker == 'Paired') {
-      deviceSeekerStyle = styles.deviceReceived;
-    }
-
-    if (this.state.deviceWeightState == 2) {
-      deviceWeightStyle = styles.deviceWorking;
-    }
-    else if (this.state.deviceWeightState == 3) {
-      deviceWeightStyle = styles.deviceReceived;
-    }
-
-    return (
-      <View style={styles.container}>
-        <View>
-          <Text style={styles.lastReading}>{this.state.deviceLastReading}</Text>
-        </View>
-        <View>
-          <Text style={styles.instructions}>Battery</Text>
-          <View style={deviceBatteryStyle}></View>
-        </View>
-        <View>
-          <Text style={styles.instructions}>{this.state.deviceSeeker}</Text>
-          <View style={deviceSeekerStyle}></View>
-        </View>
-        <View>
-          <Text style={styles.instructions}>Weight</Text>
-          <View style={deviceWeightStyle}></View>
-        </View>
-        <View>
-          <Text style={styles.instructions}>Pressure</Text>
-          <View style={devicePressureStyle}></View>
-        </View>
-      </View>
-    );
-  }
 }
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
-    padding: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000000',
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end'
+    backgroundColor:'black',
   },
-  lastReading: {
-    fontSize: 30,
+  toolbar: {
+    paddingTop:10,
+    paddingBottom:10,
+    paddingRight:10,
+    paddingLeft:10,
+    flexDirection:'row'
+  },
+  statusIcons: {
+    flex: 1
+  },
+  hostName : {
+    color: '#ef553a',
+    width: 100,
+    textAlign: 'right',
+    fontSize: 24,
+  },
+  statusGroup: {
+    flexDirection:'row',
+    marginBottom: 2
+  },
+  statusName: {
+    fontSize: 8,
+    color: '#ebeef0',
+    marginLeft: 2
+  },
+  solid: {
+    backgroundColor: 'orange',
+    width: 10,
+    height: 10
+  },
+
+  content:{
+    backgroundColor:'#333333',
+    flex:1,
+    flexDirection:'row',
+    alignItems:'center',
+    justifyContent:'center'
+  },
+
+  messageBox:{
+    backgroundColor:'#ef553a',
+    width:300,
+    paddingTop:10,
+    paddingBottom:20,
+    paddingLeft:20,
+    paddingRight:20,
+    borderRadius:10
+  },
+
+  messageBoxTitleText:{
+      fontWeight:'bold',
+      color:'#fff',
+      textAlign:'center',
+      fontSize:20,
+      marginBottom:10
+  },
+
+  messageBoxBodyText:{
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center'
+  },
+
+  footer: {
+    paddingTop:10,
+    paddingBottom:10,
+    paddingRight:10,
+    paddingLeft:10,
+    flexDirection:'row'
+  },
+
+  buttons: {
+    width: 300,
+    flexDirection:'row'
+  },
+
+  buttonGroup: {
+    marginRight: 10
+  },
+
+  solidButton: {
+    backgroundColor: '#CCCCCC',
+    width: 30,
+    height: 25
+  },
+
+  buttonName: {
+    fontSize: 8,
+    color:'#fff',
     textAlign: 'center',
-    marginRight: 10,
-    color: '#CCCCCC',
+    marginTop: 2
   },
-  instructions: {
-    color: '#CCCCCC',
-    marginBottom: 28,
-    marginRight: 8,
-    fontSize: 12,
-    width: 60,
-    transform: [{rotate: '270deg'}],
-    textAlign: 'left',
+
+  smartState: {
+    textAlign: 'center',
+    marginTop: 5,
+    fontSize: 10,
   },
-  deviceBatteryGood: {
-    backgroundColor: 'green',
-    width: 50,
-    height: 50,
+
+  deviceIcons: {
+    flex: 1
+  },
+
+  deviceGroup: {
+    flexDirection: 'row',
+    marginBottom: 5,
+    justifyContent: 'flex-end'
+  },
+
+  deviceName: {
+    fontSize: 8,
+    color:'#fff',
     marginRight: 5
-  },
-  deviceBatteryCharge: {
-    backgroundColor: 'orange',
-    width: 50,
-    height: 50,
-    marginRight: 5
-  },
-  deviceBatteryLow: {
-    backgroundColor: 'red',
-    width: 50,
-    height: 50,
-    marginRight: 5
-  },
-  deviceIdle: {
-    backgroundColor: 'blue',
-    width: 50,
-    height: 50
-  },
-  deviceWorking: {
-    backgroundColor: 'orange',
-    width: 50,
-    height: 50
-  },
-  deviceReceived: {
-    backgroundColor: 'green',
-    width: 50,
-    height: 50
-  },
+  }
 });
 
 AppRegistry.registerComponent('BleHackNative', () => BleHackNative);
+
+// https://css-tricks.com/snippets/css/a-guide-to-flexbox/
